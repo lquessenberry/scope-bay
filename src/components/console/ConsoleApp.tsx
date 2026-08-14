@@ -12,8 +12,9 @@ import {
   type Phosphor,
 } from "./catalog";
 import { Doodad } from "./Doodad";
+import { BoardView } from "./boards";
 import { GRID_CLASS, GRID_PRESETS, type GridId } from "./grids";
-import { pagesFor, type LivePage } from "./sets";
+import { pagesFor, type LivePage, type SetKind } from "./sets";
 
 const PHOSPHORS = Object.keys(PHOSPHOR_LABELS) as Phosphor[];
 const ERAS = Object.keys(ERA_LABELS) as Era[];
@@ -97,35 +98,47 @@ function SetPage({
       data-era={page.set.era}
       className="bay-set flex flex-col px-4 py-4 sm:px-6"
     >
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="font-mono text-[0.58rem] tracking-[0.22em] text-faint">
-            SET {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")} · {page.set.era === "slab" ? "1968 SLAB" : "BRIDGE CRT"}
-          </p>
-          <h2 className="font-display text-2xl font-semibold uppercase tracking-tight">{page.set.title}</h2>
-        </div>
-        <p className="font-mono text-[0.62rem] tracking-widest text-faint">
-          {page.set.hint} · {page.items.length} LIVE MAX
-        </p>
-      </div>
-
-      <div className={cn("mx-auto w-full max-w-[640px] flex-1", GRID_CLASS[grid])}>
-        {page.items.map((spec) => (
-          <Doodad
-            key={spec.id}
-            spec={spec}
-            selected={spec.id === selected}
-            onSelect={onSelect}
-            live={live}
-          />
-        ))}
-      </div>
+      {page.set.kind === "board" && page.set.layout ? (
+        <BoardView
+          layout={page.set.layout}
+          items={page.items}
+          live={live}
+          selected={selected}
+          onSelect={onSelect}
+        />
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <p className="font-mono text-xs tracking-widest text-faint">
+                SET {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")} · {page.set.era === "slab" ? "1968 SLAB" : "BRIDGE CRT"}
+              </p>
+              <h2 className="font-display text-2xl font-semibold uppercase tracking-tight">{page.set.title}</h2>
+            </div>
+            <p className="font-mono text-xs tracking-widest text-faint">
+              {page.set.hint} · {page.items.length} LIVE MAX
+            </p>
+          </div>
+          <div className={cn("mx-auto w-full max-w-xl flex-1", GRID_CLASS[grid])}>
+            {page.items.map((spec) => (
+              <Doodad
+                key={spec.id}
+                spec={spec}
+                selected={spec.id === selected}
+                onSelect={onSelect}
+                live={live}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
 
 export function ConsoleApp() {
   const [phosphor, setPhosphor] = useState<Phosphor | "all">("all");
+  const [kind, setKind] = useState<SetKind>("board");
   const [era, setEra] = useState<Era | "all">("all");
   const [grid, setGrid] = useState<GridId>("4");
   const [selected, setSelected] = useState<string | null>(null);
@@ -153,12 +166,12 @@ export function ConsoleApp() {
     });
   }, [phosphor, era]);
 
-  const pages = useMemo(() => pagesFor(items, era), [items, era]);
+  const pages = useMemo(() => pagesFor(items, era, kind), [items, era, kind]);
 
   useEffect(() => {
     if (pages[0]) setActiveSet(pages[0].set.id);
     scroller.current?.scrollTo({ top: 0 });
-  }, [era, phosphor, pages]);
+  }, [era, phosphor, kind, pages]);
 
   const active = (selected && CATALOG.find((d) => d.id === selected)) || pages[0]?.items[0] || null;
   const currentPage = pages.find((p) => p.set.id === activeSet) ?? pages[0];
@@ -195,11 +208,18 @@ export function ConsoleApp() {
           </div>
 
           <p className="max-w-2xl text-pretty text-sm leading-relaxed text-mute">
-            Four instruments per deck. Scroll to wake the next set — off-screen
-            boards sleep so the bay stays light.
+            Four instruments sleep off-screen. Stations pair doodads with named
+            donors in ordinary type.
           </p>
 
           <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto pb-1">
+            <Chip active={kind === "board"} onClick={() => setKind("board")}>
+              Stations
+            </Chip>
+            <Chip active={kind === "rack"} onClick={() => setKind("rack")}>
+              Racks
+            </Chip>
+            <span className="mx-1 w-px shrink-0 bg-bezel" />
             <Chip active={era === "all"} onClick={() => setEra("all")}>
               All eras
             </Chip>
@@ -208,12 +228,16 @@ export function ConsoleApp() {
                 {ERA_LABELS[id]}
               </Chip>
             ))}
-            <span className="mx-1 w-px shrink-0 bg-bezel" />
-            {GRID_PRESETS.map((p) => (
-              <Chip key={p.id} active={grid === p.id} onClick={() => setGrid(p.id)}>
-                {p.label}
-              </Chip>
-            ))}
+            {kind === "rack" ? (
+              <>
+                <span className="mx-1 w-px shrink-0 bg-bezel" />
+                {GRID_PRESETS.map((p) => (
+                  <Chip key={p.id} active={grid === p.id} onClick={() => setGrid(p.id)}>
+                    {p.label}
+                  </Chip>
+                ))}
+              </>
+            ) : null}
             <span className="mx-1 w-px shrink-0 bg-bezel" />
             <Chip active={phosphor === "all"} onClick={() => setPhosphor("all")}>
               All phosphors
@@ -270,4 +294,4 @@ export function ConsoleApp() {
   );
 }
 
-const SETS_HEAD = "crt-sensor";
+const SETS_HEAD = "board-watch";
